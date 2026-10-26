@@ -26,6 +26,8 @@ export type AgentVerifyOutcome =
       nostr_pubkey: string;
       event_id: string;
       proof_id: string | null;
+      /** Current registry link incarnation, when reported. */
+      incarnation: string | null;
       checked_at: number;
       /** `null` when the registry reported no behavior reading. */
       reputation: AgentVerifyReputation | null;
@@ -72,13 +74,4 @@ export async function sendAgentVerifyProof(
       requestEventId,
     }),
   );
-}
-
-/** Check a proof message against its request and the registry. */
-export async function checkAgentVerifyProof(
-  proofEventId: string,
-): Promise<AgentVerifyOutcome> {
-  return invokeTauri<AgentVerifyOutcome>("agent_verify_check_proof", {
-    proofEventId,
-  });
 }

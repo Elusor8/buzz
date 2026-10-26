@@ -591,15 +591,8 @@ pub async fn agent_verify_send_proof(
 }
 
 /// Check a proof message against the request it answers and the registry.
-#[tauri::command]
-pub async fn agent_verify_check_proof(
-    proof_event_id: String,
-    state: State<'_, AppState>,
-) -> Result<VerifyOutcome, String> {
-    check_proof(&state, &proof_event_id).await
-}
-
-/// The native proof check, shared with the behavior read gate.
+/// The app reaches this through the behavior read, which shows identity
+/// separately from standing.
 pub(crate) async fn check_proof(
     state: &AppState,
     proof_event_id: &str,

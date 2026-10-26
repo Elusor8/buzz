@@ -35,6 +35,10 @@ import { UserAvatar } from "@/shared/ui/UserAvatar";
 import { useChannelNavigation } from "@/shared/context/ChannelNavigationContext";
 import { parseImetaTags } from "@/shared/ui/markdown/parseImeta";
 import { useMessageEmoji } from "@/features/messages/lib/useMessageEmoji";
+import {
+  parseAgentVerifyProofContent,
+  parseAgentVerifyRequestContent,
+} from "@/features/messages/lib/agentVerifyMessage";
 import { parseWaveMessageContent } from "@/features/messages/lib/waveMessage";
 import { resolveSnapshotSharedBy } from "@/features/messages/lib/snapshotSharedBy";
 import { resolveMentionProps } from "@/shared/lib/resolveMentionNames";
@@ -50,6 +54,10 @@ import { toast } from "sonner";
 import { MessageAgentOwner } from "./MessageAgentOwner";
 import { MessageAuthorText, MessageHeaderRow } from "./MessageHeader";
 import { MessageTimestamp } from "./MessageTimestamp";
+import {
+  AgentVerifyProofAttachment,
+  AgentVerifyRequestAttachment,
+} from "./AgentVerifyAttachment";
 import { WaveMessageAttachment } from "./WaveMessageAttachment";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
@@ -373,6 +381,25 @@ export const MessageRow = React.memo(
             />
           );
         default: {
+          const verifyRequest = parseAgentVerifyRequestContent(message.body);
+          if (verifyRequest) {
+            return (
+              <AgentVerifyRequestAttachment
+                eventId={message.id}
+                request={verifyRequest}
+              />
+            );
+          }
+          const verifyProof = parseAgentVerifyProofContent(message.body);
+          if (verifyProof) {
+            return (
+              <AgentVerifyProofAttachment
+                eventId={message.id}
+                proof={verifyProof}
+              />
+            );
+          }
+
           const waveMessage = parseWaveMessageContent(message.body);
           if (waveMessage) {
             return (

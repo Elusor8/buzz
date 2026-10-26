@@ -617,71 +617,69 @@ pub async fn behavior_read_peer(
     })
 }
 
-/// The next page of a peer list, for a subject that passed the gate recently.
+fn to_json<T: Serialize>(value: T) -> Result<serde_json::Value, String> {
+    serde_json::to_value(value).map_err(|e| e.to_string())
+}
+
+/// Read one page of a list. `notifications` is mailbox-wide; the peer lists
+/// need a subject that passed the identity gate recently. `position` is where
+/// the previous page ended, or `None` for the first notifications page.
 #[tauri::command]
-pub async fn behavior_read_peer_page(
+pub async fn behavior_read_list(
     list: String,
-    subject_agent_id: String,
-    position: PagePosition,
+    subject_agent_id: Option<String>,
+    position: Option<PagePosition>,
     app: AppHandle,
 ) -> Result<serde_json::Value, String> {
-    if !is_subject_agent_id(&subject_agent_id) || !subject_is_gated(&subject_agent_id, now_ms()) {
-        return serde_json::to_value(skipped::<()>("identity_unattributed"))
-            .map_err(|e| e.to_string());
-    }
     let (binding, token) = match active_binding(&app) {
         Ok(found) => found,
-        Err(code) => return serde_json::to_value(skipped::<()>(&code)).map_err(|e| e.to_string()),
+        Err(code) => return to_json(skipped::<()>(&code)),
     };
-    let id = subject_agent_id.as_str();
-    let value = match list.as_str() {
-        "denied_attempts" => serde_json::to_value(
+    if list == "notifications" {
+        let path = format!("/v1/mailboxes/{}/notifications", binding.mailbox_id);
+        return to_json(
+            read_list::<OwnerNotification>(
+                &binding,
+                &token,
+                NOTIFICATIONS_SCOPE,
+                &path,
+                None,
+                position.as_ref(),
+            )
+            .await,
+        );
+    }
+    let (Some(id), Some(position)) = (subject_agent_id.as_deref(), position.as_ref()) else {
+        return Err("a peer list page needs a subject and a position".into());
+    };
+    if !is_subject_agent_id(id) || !subject_is_gated(id, now_ms()) {
+        return to_json(skipped::<()>("identity_unattributed"));
+    }
+    match list.as_str() {
+        "denied_attempts" => to_json(
             read_list::<DeniedAttempt>(
                 &binding,
                 &token,
                 AUDIT_SCOPE,
                 &peer_path(&binding, id, "denied-attempts"),
                 Some(id),
-                Some(&position),
+                Some(position),
             )
             .await,
         ),
-        "recovery_receipts" => serde_json::to_value(
+        "recovery_receipts" => to_json(
             read_list::<RestorationReceipt>(
                 &binding,
                 &token,
                 RECOVERY_SCOPE,
                 &peer_path(&binding, id, "recovery-receipts"),
                 Some(id),
-                Some(&position),
+                Some(position),
             )
             .await,
         ),
-        _ => return Err("unknown list".into()),
-    };
-    value.map_err(|e| e.to_string())
-}
-
-/// The owner's notification records (mailbox-wide), first page or next page.
-#[tauri::command]
-pub async fn behavior_read_notifications(
-    position: Option<PagePosition>,
-    app: AppHandle,
-) -> Result<ReadResult<ListPage<OwnerNotification>>, String> {
-    let (binding, token) = match active_binding(&app) {
-        Ok(found) => found,
-        Err(code) => return Ok(skipped(&code)),
-    };
-    let path = format!("/v1/mailboxes/{}/notifications", binding.mailbox_id);
-    Ok(read_list::<OwnerNotification>(
-        &binding,
-        &token,
-        NOTIFICATIONS_SCOPE,
-        &path,
-        None,
-        position.as_ref(),
-    )
-    .await)
+        _ => Err("unknown list".into()),
+    }
 }
 
 #[cfg(test)]

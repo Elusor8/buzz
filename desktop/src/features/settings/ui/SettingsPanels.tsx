@@ -87,6 +87,7 @@ import { MobilePairingCard } from "./MobilePairingCard";
 import { ModerationQueueCard } from "./ModerationQueueCard";
 import { NotificationSettingsCard } from "./NotificationSettingsCard";
 import { PreventSleepSettingsCard } from "./PreventSleepSettingsCard";
+import { BehaviorAccessSettingsCard } from "./BehaviorAccessSettingsCard";
 import { AgentDefaultsSettingsCard } from "./AgentDefaultsSettingsCard";
 import { HostedCommunitiesSettingsCard } from "./HostedCommunitiesSettingsCard";
 import { SettingsOptionGroup, SettingsOptionRow } from "./SettingsOptionGroup";
@@ -958,6 +959,7 @@ export function renderSettingsSection(
           <PreventSleepSettingsCard />
           <HarnessesSettingsPanel />
           <AgentDefaultsSettingsCard />
+          <BehaviorAccessSettingsCard />
         </div>
       );
     case "channel-templates":
