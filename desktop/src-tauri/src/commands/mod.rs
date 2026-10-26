@@ -12,6 +12,8 @@ mod agent_settings;
 mod agent_update_rollback;
 mod agent_verify;
 mod agents;
+mod behavior_reads;
+mod behavior_wire;
 mod canvas;
 mod channel_templates;
 mod channel_window;
@@ -78,6 +80,10 @@ pub use agent_verify::{
     agent_verify_check_proof, agent_verify_send_proof, agent_verify_send_request,
 };
 pub use agents::*;
+pub use behavior_reads::{
+    behavior_binding_status, behavior_import_binding, behavior_read_notifications,
+    behavior_read_peer, behavior_read_peer_page, behavior_remove_binding,
+};
 pub use canvas::*;
 pub use channel_templates::*;
 pub use channel_window::*;

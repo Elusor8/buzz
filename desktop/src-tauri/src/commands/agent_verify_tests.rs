@@ -31,6 +31,8 @@ fn proof(fx: &Fixture) -> Event {
     build_proof_event(&fx.prover_keys, &fx.request, NOW).expect("proof")
 }
 
+const INCARNATION: &str = "0123456789abcdef0123456789abcdef";
+
 fn verified_body(fx: &Fixture, event: &Event) -> Vec<u8> {
     serde_json::to_vec(&serde_json::json!({
         "verified": true,
@@ -41,7 +43,7 @@ fn verified_body(fx: &Fixture, event: &Event) -> Vec<u8> {
         "kind": 30388,
         "freshness_checked": true,
         "owner_attestation": null,
-        "link": { "proof_id": "p1", "incarnation": "i1", "revision": 1 },
+        "link": { "proof_id": "p1", "incarnation": INCARNATION, "revision": 1 },
         "reputation": {
             "entropy_score": 0.42,
             "drift_detected": false,
@@ -316,6 +318,7 @@ fn exact_registry_success_is_verified() {
             nostr_pubkey: fx.request.prover_pubkey.clone(),
             event_id: event.id.to_hex(),
             proof_id: Some("p1".into()),
+            incarnation: Some(INCARNATION.into()),
             checked_at: NOW,
             reputation: Some(Reputation {
                 entropy_score: Some(0.42),
@@ -326,6 +329,36 @@ fn exact_registry_success_is_verified() {
             blue_tick: Some(true),
         }
     );
+}
+
+#[test]
+fn registry_incarnation_must_be_exact_lower_hex32() {
+    let fx = fixture();
+    let event = proof(&fx);
+    for bad in [
+        serde_json::json!("i1"),
+        serde_json::json!("0123456789ABCDEF0123456789ABCDEF"),
+        serde_json::json!(7),
+        serde_json::Value::Null,
+    ] {
+        let mut body: serde_json::Value =
+            serde_json::from_slice(&verified_body(&fx, &event)).unwrap();
+        body["link"]["incarnation"] = bad;
+        let outcome = interpret_registry_response(
+            200,
+            &serde_json::to_vec(&body).unwrap(),
+            &fx.request,
+            &event,
+            NOW,
+        );
+        assert!(matches!(
+            outcome,
+            VerifyOutcome::Verified {
+                incarnation: None,
+                ..
+            }
+        ));
+    }
 }
 
 #[test]

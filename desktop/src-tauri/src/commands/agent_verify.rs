@@ -75,6 +75,9 @@ pub enum VerifyOutcome {
         nostr_pubkey: String,
         event_id: String,
         proof_id: Option<String>,
+        /// The registry's current link incarnation (lowercase hex32), when
+        /// reported in that exact form.
+        incarnation: Option<String>,
         checked_at: u64,
         /// The registry's behavior reading for this identity, verbatim.
         /// `None` when the registry reported none or an unexpected shape.
@@ -359,10 +362,15 @@ pub(crate) fn interpret_registry_response(
         if !matches {
             return rejected("E_REGISTRY_MISMATCH");
         }
-        let proof_id = body
-            .get("link")
+        let link = body.get("link");
+        let proof_id = link
             .and_then(|link| link.get("proof_id"))
             .and_then(serde_json::Value::as_str)
+            .map(str::to_string);
+        let incarnation = link
+            .and_then(|link| link.get("incarnation"))
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| is_lower_hex(value, 32))
             .map(str::to_string);
         return VerifyOutcome::Verified {
             identity: request.prover.clone(),
@@ -370,6 +378,7 @@ pub(crate) fn interpret_registry_response(
             nostr_pubkey: request.prover_pubkey.clone(),
             event_id: event.id.to_hex(),
             proof_id,
+            incarnation,
             checked_at,
             reputation: parse_reputation(body.get("reputation")),
             blue_tick: body.get("blue_tick").and_then(serde_json::Value::as_bool),
@@ -587,7 +596,15 @@ pub async fn agent_verify_check_proof(
     proof_event_id: String,
     state: State<'_, AppState>,
 ) -> Result<VerifyOutcome, String> {
-    let proof_message = fetch_message(&state, &proof_event_id.trim().to_ascii_lowercase()).await?;
+    check_proof(&state, &proof_event_id).await
+}
+
+/// The native proof check, shared with the behavior read gate.
+pub(crate) async fn check_proof(
+    state: &AppState,
+    proof_event_id: &str,
+) -> Result<VerifyOutcome, String> {
+    let proof_message = fetch_message(state, &proof_event_id.trim().to_ascii_lowercase()).await?;
     let event = match parse_proof(&proof_message.content) {
         Ok(event) => event,
         Err(_) => return Ok(rejected("E_PROOF_MALFORMED")),
@@ -595,7 +612,7 @@ pub async fn agent_verify_check_proof(
     let Some(request_id) = parent_event_id(&proof_message) else {
         return Ok(rejected("E_PROOF_NO_REQUEST"));
     };
-    let (request_event, request) = match fetch_request(&state, &request_id).await {
+    let (request_event, request) = match fetch_request(state, &request_id).await {
         Ok(found) => found,
         Err(_) => return Ok(rejected("E_PROOF_NO_REQUEST")),
     };
